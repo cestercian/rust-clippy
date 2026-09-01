@@ -41,6 +41,14 @@ pub(super) fn check<'tcx>(
         if expr_needs_braces_for_const(arg) {
             arg_str = std::borrow::Cow::Owned(format!("{{ {arg_str} }}"));
         }
+        // `as_chunks` yields `&[T; N]`, not `&[T]`. `is_ty_unified` only sees when the
+        // *iterator* type must unify (e.g. if/else), not Item pinning. The binding of a
+        // `for` loop is always `&[T]` today (`ChunksExact::Item`); that does not tell us
+        // whether later uses (or `collect`/`map`/typed closures) can accept `&[T; N]`.
+        // Proving that at arbitrary downstream sites is not realistic.
+        if applicability != Applicability::HasPlaceholders {
+            applicability = Applicability::MaybeIncorrect;
+        }
 
         let as_chunks = format_args!("{suggestion_method}::<{arg_str}>()");
 
